@@ -12,7 +12,7 @@ MCP_CAN CAN0(5);  // Set CS to pin 9
 #define CAN_ECU_1            0x140
 #define CAN_ECU_2            0x150
 #define CAN_ECU_3            0x170
-#define CAN_ECU_4            0x160
+#define CAN_ECU_4            0x180
 
 //ID ECU 1
 #define CAN_RPM                    0     
