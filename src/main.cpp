@@ -188,7 +188,7 @@ void setup()
   //SETUP CAN BUS////////////////////////////
   if(CAN0.begin(MCP_STDEXT, CAN_500KBPS, MCP_8MHZ) == CAN_OK) Serial.print("MCP2515 Init Okay!!\r\n");
   else Serial.print("MCP2515 Init Failed!!\r\n");
-  pinMode(22, INPUT);                       // Setting pin 22 for /INT input
+  pinMode(22, INPUT);                       // Setting pin 22 for INT input
 
 
   CAN0.init_Mask(0,0,0x07FF0000);                // Init first mask...
