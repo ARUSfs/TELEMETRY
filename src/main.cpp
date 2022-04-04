@@ -6,7 +6,7 @@ long unsigned int rxId;
 unsigned char len = 0;
 unsigned char rxBuf[8];
 
-MCP_CAN CAN0(5);  // Set CS to pin 9
+MCP_CAN CAN0(5);  // Set CS to pin 5
 
 
 #define CAN_ECU_1            0x140
