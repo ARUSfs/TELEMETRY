@@ -229,7 +229,7 @@ void setup()
   SerialMon.print("Modem Info: ");
   SerialMon.println(modemInfo);
 
-  uint8_t LTE = 38;
+  uint8_t LTE = 38; // Lo indica el la guia de usuario del SerialAT
 
   //AÑADIDO POR MI
   modem.setNetworkMode(LTE);
