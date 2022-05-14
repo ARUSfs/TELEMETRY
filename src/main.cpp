@@ -6,7 +6,7 @@ long unsigned int rxId;
 unsigned char len = 0;
 unsigned char rxBuf[8];
 
-MCP_CAN CAN0(5);  // Set CS to pin 5
+MCP_CAN CAN0(21);  // Set CS to pin 21
 
 
 #define CAN_ECU_1            0x140
@@ -106,7 +106,7 @@ const char gprsPass[] = "wap125";
 
 
 // MQTT details
-const char* broker = "35.242.245.93";
+const char* broker = "35.246.136.225";
 const char* mqttUsername = "";  // MQTT username
 const char* mqttPassword = "";  // MQTT password
 const char *root_topic_subscribe = "input";
@@ -128,8 +128,8 @@ TinyGsm        modem(SerialAT);
 TinyGsmClient client(modem);
 PubSubClient  mqtt(client);
 
-#define MODEM_TX             27
-#define MODEM_RX             26
+#define MODEM_TX             14
+#define MODEM_RX             12
 
 char msg[25];
 
@@ -178,22 +178,30 @@ boolean mqttConnect()
 
 }
 
+#include <Arduino.h>
+
+const int ledPin = 13;
+const int ledPin1 = 5;
+
 
 void setup() 
 {
   // Set console baud rate
   SerialMon.begin(115200);
-  delay(10);
+  delay(1000);
+
+pinMode (ledPin, OUTPUT);
+pinMode (ledPin1, OUTPUT);
 
   //SETUP CAN BUS////////////////////////////
-  if(CAN0.begin(MCP_STDEXT, CAN_500KBPS, MCP_8MHZ) == CAN_OK) Serial.print("MCP2515 Init Okay!!\r\n");
+  if(CAN0.begin(MCP_STDEXT, CAN_500KBPS, MCP_16MHZ) == CAN_OK) Serial.print("MCP2515 Init Okay!!\r\n");
   else Serial.print("MCP2515 Init Failed!!\r\n");
-  pinMode(22, INPUT);                       // Setting pin 22 for INT input
+  pinMode(17, INPUT);                       // Setting pin 22 for INT input
 
 
   CAN0.init_Mask(0,0,0x07FF0000);                // Init first mask...
-  CAN0.init_Filt(0,0,0x02400000);                // Init first filter...
-  CAN0.init_Filt(1,0,0x02500000);                // Init second filter...
+  CAN0.init_Filt(0,0,0x02200000);                // Init first filter...
+  CAN0.init_Filt(1,0,0x02400000);                // Init second filter...
   
   CAN0.init_Mask(1,0,0x07FF0000);                // Init second mask... 
   CAN0.init_Filt(2,0,0x01400000);                // Init third filter...
@@ -215,7 +223,7 @@ void setup()
   SerialMon.println("Wait...");
 
   // Set GSM module baud rate, IMPORTANT in the case of usign ESP32 we have to use this function with these specific parameters
-  SerialAT.begin(3686400, SERIAL_8N1, 27, 26);
+  SerialAT.begin(3686400, SERIAL_8N1, MODEM_TX, MODEM_RX);
 
   delay(6000);
 
@@ -224,6 +232,8 @@ void setup()
   SerialMon.println("Initializing modem...");
   modem.restart();
   // modem.init();
+
+  delay(1000);
 
   String modemInfo = modem.getModemInfo();
   SerialMon.print("Modem Info: ");
@@ -300,9 +310,11 @@ void loop()
    
   
 
- if(!digitalRead(22))                    // If pin 22 is low, read receive buffer
+ if(!digitalRead(17))                    // If pin 17 is low, read receive buffer
  {
-    
+      
+    digitalWrite (ledPin, HIGH);	// turn on the LED
+    digitalWrite (ledPin1, HIGH);	// turn off the LED
 
     CAN0.readMsgBuf(&rxId, &len, rxBuf); // Read data: len = data length, buf = data byte(s)
     
@@ -400,5 +412,12 @@ void loop()
   
 
 }
+
+else
+{
+    digitalWrite (ledPin, LOW);	// turn off the LED
+}
+
+
 
 }
