@@ -9,32 +9,37 @@ unsigned char rxBuf[8];
 MCP_CAN CAN0(21);  // Set CS to pin 21
 
 
-#define CAN_ECU_1            0x140
-#define CAN_ECU_2            0x150
-#define CAN_ECU_3            0x170
-#define CAN_ECU_4            0x180
+#define CAN_ECU_1            0x01
+#define CAN_ECU_2            0x02
+#define CAN_ECU_3            0x03
+
 
 //ID ECU 1
 #define CAN_RPM                    0     
-#define CAN_TP                     1
-#define CAN_FBP                    2
-#define CAN_RBP                    3
-#define CAN_STEERING_WHEEL         4
-#define CAN_GEAR                   5
+#define CAN_RBP                    2
+#define CAN_FBP                    3
+#define CAN_OIL_PRESSURE           4
 #define CAN_LAMBDA                 6
 
-
 //ID ECU 2
-#define CAN_ECT                    0
-#define CAN_TEMP_RADIADOR          1
-#define CAN_TEMP_COCKPIT           2
-#define CAN_TEMP_IAT               3
-#define CAN_TEMP_ACEITE            4
-#define CAN_TEMP_ECT               5
-#define CAN_PRESION_ACEITE         6
-
+#define CAN_TP                     0
+#define CAN_STEERING_WHEEL         1
+#define CAN_WSFL                   2
+#define CAN_WSFR                   3
+#define CAN_WSRL                   4
+#define CAN_WSRR                   5
+#define CAN_SLIP                   6
+#define CAN_BOTTON                 7
 
 //ID ECU 3
+#define CAN_BATTERY_VOLTAGE        0
+#define CAN_ECT                    1
+#define CAN_TEMP_RADIATOR          2
+#define CAN_TEMP_COCKPIT           3
+#define CAN_IAT                    4
+#define CAN_TEMP_OIL               5
+#define CAN_LOG_ECU                6
+#define CAN_GEAR                   7
 
 /////////////////////////////////////////////////////
 
@@ -45,27 +50,39 @@ MCP_CAN CAN0(21);  // Set CS to pin 21
 
 StaticJsonDocument<384> JSON_OUT;
 
+////////////////////////////
+
 int rpm = 0;
-int tp = 0;
+int rbp = 0;
 int fbp = 0;
-int presion_aceite=0;
+int oil_pressure=0;
 int lambda = 0;
 
-int bateria=0;
-int temp_motor = 0;
-int temp_radiador = 0;
-int temp_cockpit = 0;
-int iat = 0;
-int temp_aceite = 0;
-int log_use=0;
-int marcha = 0;
+////////////////////////////
+
+int tp=0;
 int steering_wheel = 0;
-int temp_ect = 0;
-int wsf=0;
-int wsb=0;
+int WSFL = 0;
+int WSFR = 0;
+int WSRL = 0;
+int WSRR = 0;
+int slip=0;
+int botton = 0;
+
+////////////////////////////
+
+int battery_voltage = 0;
+int ect = 0;
+int temp_radiator=0;
+int temp_cockpit=0;
+int iat=0;
+int temp_oil=0;
+int log_ecu=0;
+int gear=0;
+
 char envio[384];
 
-//////////////////////////////
+////////////////////////////
 
 // Select your modem:
 #define TINY_GSM_MODEM_SIM7600 // 
@@ -110,7 +127,7 @@ const char* broker = "35.246.136.225";
 const char* mqttUsername = "";  // MQTT username
 const char* mqttPassword = "";  // MQTT password
 const char *root_topic_subscribe = "input";
-const char *root_topic_publish = "datos";
+const char *root_topic_publish = "output";
 
 
 #include <TinyGsmClient.h>
@@ -323,64 +340,63 @@ void loop()
     if((unsigned long)rxId==(unsigned long)CAN_ECU_1)
     {
 
-      rpm=(rxBuf[CAN_RPM]*100);
-      tp=(rxBuf[CAN_TP])-50;
-      fbp=(rxBuf[CAN_FBP]*100);
-      fbp=(rxBuf[CAN_RBP]*100);
-      steering_wheel=(rxBuf[CAN_STEERING_WHEEL]);
-      marcha=(rxBuf[CAN_GEAR]);
-      lambda=(rxBuf[CAN_LAMBDA+1] << 8 | rxBuf[CAN_LAMBDA]);
+      rpm=((rxBuf[CAN_RPM+1] << 8 | rxBuf[CAN_RPM]));
+      rbp=((rxBuf[CAN_RBP]));
+      fbp=(rxBuf[CAN_FBP]);
+      oil_pressure=((rxBuf[CAN_OIL_PRESSURE+1] << 8 | rxBuf[CAN_OIL_PRESSURE]));
+      lambda=((rxBuf[CAN_LAMBDA+1] << 8 | rxBuf[CAN_LAMBDA]));
 
     }
 
     if((unsigned long)rxId==(unsigned long)CAN_ECU_2)
     {
 
-      temp_motor=(rxBuf[CAN_ECT]);
-      temp_radiador=(rxBuf[CAN_TEMP_RADIADOR]);
-      temp_cockpit=(rxBuf[CAN_TEMP_COCKPIT]);
-      iat=(rxBuf[CAN_TEMP_IAT]);
-      temp_aceite=(rxBuf[CAN_TEMP_ACEITE]);
-      temp_ect=(rxBuf[CAN_TEMP_ECT]);
-      presion_aceite=(rxBuf[CAN_PRESION_ACEITE]<<8 | rxBuf[CAN_PRESION_ACEITE+1]);
+      tp=((rxBuf[CAN_TP]));
+      steering_wheel=((rxBuf[CAN_STEERING_WHEEL]));
+      WSFL=(rxBuf[CAN_WSFL]);
+      WSFR=(rxBuf[CAN_WSFR]);
+      WSRL=(rxBuf[CAN_WSRL]);
+      WSRL=(rxBuf[CAN_WSRR]);
+      slip=((rxBuf[CAN_SLIP]));
+      botton=(rxBuf[CAN_BOTTON]);
 
     }
 
     if((unsigned long)rxId==(unsigned long)CAN_ECU_3)
     {
-        wsf=rxBuf[0]*10;
-        wsb=rxBuf[1]*10;
+        battery_voltage=(rxBuf[CAN_BATTERY_VOLTAGE]);
+        ect=rxBuf[CAN_ECT];
+        temp_radiator=rxBuf[CAN_TEMP_RADIATOR];
+        temp_cockpit=rxBuf[CAN_TEMP_COCKPIT];
+        iat=rxBuf[CAN_IAT];
+        temp_oil=rxBuf[CAN_TEMP_OIL];
+        log_ecu=rxBuf[CAN_LOG_ECU];
+        gear=rxBuf[CAN_GEAR];
     }
     
-    if((unsigned long)rxId==(unsigned long)CAN_ECU_4)
-    {
 
-        bateria=rxBuf[0]*10;
-        int log_use=(rxBuf[7]*100)-50;
-
-    }
 
 
               JSON_OUT["RPM"] = rpm;
-              JSON_OUT["Marcha"] = marcha;
+              JSON_OUT["Marcha"] = gear;
             
         
-              JSON_OUT["WSRL"] = 0;
-              JSON_OUT["WSRR"] = 0;
+              JSON_OUT["WSRL"] = WSRL;
+              JSON_OUT["WSRR"] = WSRR;
               JSON_OUT["Bomba"] = 0;
               JSON_OUT["Ventilador"] = 0;
               JSON_OUT["Arranque"] = 0;
 
               JSON_OUT["TP"] = tp;
-              JSON_OUT["Temp_Motor"] = temp_motor-50;
-              JSON_OUT["Temp_Aceite"] = temp_aceite-50;
-              JSON_OUT["Temp_Agua"] = temp_radiador-50;
-              JSON_OUT["Presion_Aceite"] = presion_aceite;
-              JSON_OUT["Bateria"] = bateria;
-              JSON_OUT["Log"] = log_use;
+              JSON_OUT["Temp_Motor"] = ect;
+              JSON_OUT["Temp_Aceite"] = temp_oil;
+              JSON_OUT["Temp_Agua"] = temp_radiator;
+              JSON_OUT["Presion_Aceite"] = oil_pressure;
+              JSON_OUT["Bateria"] = battery_voltage;
+              JSON_OUT["Log"] = log_ecu;
 
-              JSON_OUT["WSFL"] = wsb;
-              JSON_OUT["WSFR"] = wsf;
+              JSON_OUT["WSFL"] = WSFL;
+              JSON_OUT["WSFR"] = WSFR;
 
               JSON_OUT["Giro_Volante"] = steering_wheel;
 
@@ -388,25 +404,6 @@ void loop()
     serializeJson(JSON_OUT, envio);
  
     mqtt.publish(root_topic_publish,envio);
-
-/*
-
-      Serial.print("ID: ");
-      Serial.print(rxId, HEX);
-      Serial.print(" Data: ");
-      for(int i = 0; i<len; i++)           // Print each byte of the data
-      {
-        if(rxBuf[i] < 0x10)                // If data byte is less than 0x10, add a leading zero
-        {
-          Serial.print("0");
-        }
-        Serial.print(rxBuf[i], HEX);
-        Serial.print(" ");
-      }
-      Serial.println();
-
-      
-    */
 
   mqtt.loop();
   
