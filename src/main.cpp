@@ -12,7 +12,7 @@ MCP_CAN CAN0(21);  // Set CS to pin 21
 #define CAN_ECU_1            0x01
 #define CAN_ECU_2            0x02
 #define CAN_ECU_3            0x03
-
+#define CAN_EMBRAGUE         0x101
 
 //ID ECU 1
 #define CAN_RPM                    0     
@@ -49,6 +49,9 @@ MCP_CAN CAN0(21);  // Set CS to pin 21
 #include <ArduinoJson.h>
 
 StaticJsonDocument<384> JSON_OUT;
+// String input;
+
+StaticJsonDocument<32> JSON_IN;
 
 ////////////////////////////
 
@@ -82,6 +85,11 @@ int gear=0;
 
 char envio[384];
 
+////////////////////////////
+
+int rpmSalida=8000;
+bool salidaFlag=0;
+bool saliendoFlag=0;
 ////////////////////////////
 
 // Select your modem:
@@ -154,6 +162,9 @@ long count=0;// MQTT details
 
 uint32_t lastReconnectAttempt = 0;
 
+const int ledPin = 13;
+const int ledPin1 = 5;
+
 void mqttCallback(char* topic, byte* payload, unsigned int len) 
 {
 
@@ -164,9 +175,21 @@ void mqttCallback(char* topic, byte* payload, unsigned int len)
   SerialMon.println();
 
   // Only proceed if incoming message's topic matches, is just an example
-  if (String(topic) == topic) 
+  if (String(topic) == root_topic_subscribe) 
   {
-    
+
+    DeserializationError error = deserializeJson(JSON_IN, payload,32);
+
+    if (error) 
+    {
+     Serial.print("deserializeJson() failed: ");
+    Serial.println(error.c_str());
+    return;
+    }
+
+  rpmSalida = JSON_IN["RPM"]; 
+
+  SerialMon.println(rpmSalida);
   }
 }
 
@@ -197,9 +220,6 @@ boolean mqttConnect()
 
 #include <Arduino.h>
 
-const int ledPin = 13;
-const int ledPin1 = 5;
-
 
 void setup() 
 {
@@ -217,14 +237,14 @@ pinMode (ledPin1, OUTPUT);
 
 
   CAN0.init_Mask(0,0,0x07FF0000);                // Init first mask...
-  CAN0.init_Filt(0,0,0x02200000);                // Init first filter...
-  CAN0.init_Filt(1,0,0x02400000);                // Init second filter...
+  CAN0.init_Filt(0,0,0x00000000);                // Init first filter...
+  CAN0.init_Filt(1,0,0x04010000);                // Init second filter...
   
   CAN0.init_Mask(1,0,0x07FF0000);                // Init second mask... 
-  CAN0.init_Filt(2,0,0x01400000);                // Init third filter...
-  CAN0.init_Filt(3,0,0x01500000);                // Init fourth filter...
-  CAN0.init_Filt(4,0,0x01600000);                // Init fifth filter...
-  CAN0.init_Filt(5,0,0x01700000);                // Init sixth filter...
+  CAN0.init_Filt(2,0,0x00010000);                // Init third filter...
+  CAN0.init_Filt(3,0,0x00020000);                // Init fourth filter...
+  CAN0.init_Filt(4,0,0x00030000);                // Init fifth filter...
+  CAN0.init_Filt(5,0,0x01010000);                // Init sixth filter...
   
   Serial.println("MCP2515 Library Mask & Filter Example...");
   
@@ -328,23 +348,41 @@ void loop()
   
 
  if(!digitalRead(17))                    // If pin 17 is low, read receive buffer
+
  {
       
     digitalWrite (ledPin, HIGH);	// turn on the LED
-    digitalWrite (ledPin1, HIGH);	// turn off the LED
 
     CAN0.readMsgBuf(&rxId, &len, rxBuf); // Read data: len = data length, buf = data byte(s)
     
 
 
     if((unsigned long)rxId==(unsigned long)CAN_ECU_1)
+    
     {
 
-      rpm=((rxBuf[CAN_RPM+1] << 8 | rxBuf[CAN_RPM]));
+      rpm=((rxBuf[CAN_RPM] << 8 | rxBuf[CAN_RPM+1]));
       rbp=((rxBuf[CAN_RBP]));
       fbp=(rxBuf[CAN_FBP]);
-      oil_pressure=((rxBuf[CAN_OIL_PRESSURE+1] << 8 | rxBuf[CAN_OIL_PRESSURE]));
-      lambda=((rxBuf[CAN_LAMBDA+1] << 8 | rxBuf[CAN_LAMBDA]));
+      oil_pressure=((rxBuf[CAN_OIL_PRESSURE] << 8 | rxBuf[CAN_OIL_PRESSURE+1]));
+      lambda=((rxBuf[CAN_LAMBDA] << 8 | rxBuf[CAN_LAMBDA+1]));
+
+      if(salidaFlag)
+      {
+        if(rpm>rpmSalida)
+        {
+          unsigned char txBuf[8]={1,1,1,1,1,1,1,1};
+
+          CAN0.sendMsgBuf(0x401,0,8,txBuf);
+      
+          salidaFlag=0;
+
+
+          digitalWrite (ledPin1, LOW);	// turn off the LED
+
+        }
+
+      }
 
     }
 
@@ -356,7 +394,7 @@ void loop()
       WSFL=(rxBuf[CAN_WSFL]);
       WSFR=(rxBuf[CAN_WSFR]);
       WSRL=(rxBuf[CAN_WSRL]);
-      WSRL=(rxBuf[CAN_WSRR]);
+      WSRR=(rxBuf[CAN_WSRR]);
       slip=((rxBuf[CAN_SLIP]));
       botton=(rxBuf[CAN_BOTTON]);
 
@@ -374,6 +412,27 @@ void loop()
         gear=rxBuf[CAN_GEAR];
     }
     
+    if((unsigned long)rxId==(unsigned long)CAN_EMBRAGUE)
+    {
+      if(((rxBuf[5]&&(0x08))&&(rxBuf[5]&&(0x10))) && saliendoFlag==0)
+      {    
+        
+        salidaFlag=1;
+
+        saliendoFlag=1;
+
+         digitalWrite (ledPin1, HIGH);	// turn off the LED
+
+      }
+
+      if((((rxBuf[5]&&(0x08))&&(rxBuf[5]&&(0x10)))==0) && saliendoFlag==1)
+      {    
+
+        saliendoFlag=0;
+
+      }
+    }
+
 
 
 
@@ -413,6 +472,7 @@ void loop()
 else
 {
     digitalWrite (ledPin, LOW);	// turn off the LED
+    mqtt.loop();
 }
 
 
